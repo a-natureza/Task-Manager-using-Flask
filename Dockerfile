@@ -8,8 +8,9 @@ WORKDIR /app
 COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt
 
-# Copiar o código-fonte
-COPY . .
+# Copiar o código-fonte da pasta todo_project para /app
+COPY todo_project/ .
+
 
 # Expor a porta que a aplicação utilizará
 EXPOSE 5000
