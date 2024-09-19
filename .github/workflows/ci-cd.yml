@@ -74,47 +74,6 @@ jobs:
           docker tag task-manager-app ${{ secrets.DOCKER_USERNAME }}/task-manager-app:latest
           docker push ${{ secrets.DOCKER_USERNAME }}/task-manager-app:latest
 
-      # Configure Elastic Stack
-      - name: Set up Elastic Stack
-        run: |
-          # Baixar e instalar Elasticsearch, Logstash e Kibana
-          wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-8.10.1-linux-x86_64.tar.gz
-          wget https://artifacts.elastic.co/downloads/logstash/logstash-8.10.1-linux-x86_64.tar.gz
-          wget https://artifacts.elastic.co/downloads/kibana/kibana-8.10.1-linux-x86_64.tar.gz
-          tar -xzf elasticsearch-8.10.1-linux-x86_64.tar.gz
-          tar -xzf logstash-8.10.1-linux-x86_64.tar.gz
-          tar -xzf kibana-8.10.1-linux-x86_64.tar.gz
-
-          # Definir permissões corretas
-          chmod -R 755 elasticsearch-8.10.1/
-          
-          # Iniciar Elasticsearch no modo detached (-d)
-          nohup ./elasticsearch-8.10.1/bin/elasticsearch > elasticsearch.log 2>&1 &
-
-          # Aguardar Elasticsearch estar acessível via HTTPS
-          RETRIES=20
-          until curl -X GET "https://localhost:9200" -k > /dev/null 2>&1; do
-            echo "Aguardando Elasticsearch iniciar..."
-            RETRIES=$((RETRIES-1))
-            if [ $RETRIES -le 0 ]; then
-              echo "Elasticsearch não conseguiu iniciar a tempo."
-              cat elasticsearch.log
-              exit 1
-            fi
-            sleep 10
-          done
-          echo "Elasticsearch está ativo e acessível via HTTPS."
-
-          # Iniciar Logstash e Kibana
-          nohup ./logstash-8.10.1/bin/logstash -f logstash.conf > logstash.log 2>&1 &
-          nohup ./kibana-8.10.1/bin/kibana > kibana.log 2>&1 &
-
-      # Check Application Logs
-      - name: Check Application Logs
-        run: |
-          curl -X GET "https://localhost:9200/_cat/indices?v" -k
-          curl -X GET "https://localhost:9200/_search?pretty" -k
-
   review:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
@@ -172,4 +131,6 @@ jobs:
           docker exec owasp-zap zap-cli quick-scan --self-contained http://localhost:5002
 
       - name: Stop OWASP ZAP
-        run: docker stop owasp-zap
+        run: |
+          docker stop owasp-zap
+          docker rm owasp-zap
