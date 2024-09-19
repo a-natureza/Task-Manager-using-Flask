@@ -91,9 +91,9 @@ jobs:
           # Iniciar Elasticsearch no modo detached (-d)
           nohup ./elasticsearch-8.10.1/bin/elasticsearch > elasticsearch.log 2>&1 &
 
-          # Aguardar Elasticsearch estar acessível
+          # Aguardar Elasticsearch estar acessível via HTTPS
           RETRIES=20
-          until curl -X GET "http://localhost:9200" > /dev/null 2>&1; do
+          until curl -X GET "https://localhost:9200" -k > /dev/null 2>&1; do
             echo "Aguardando Elasticsearch iniciar..."
             RETRIES=$((RETRIES-1))
             if [ $RETRIES -le 0 ]; then
@@ -103,7 +103,7 @@ jobs:
             fi
             sleep 10
           done
-          echo "Elasticsearch está ativo e acessível."
+          echo "Elasticsearch está ativo e acessível via HTTPS."
 
           # Iniciar Logstash e Kibana
           nohup ./logstash-8.10.1/bin/logstash -f logstash.conf > logstash.log 2>&1 &
@@ -112,8 +112,8 @@ jobs:
       # Check Application Logs
       - name: Check Application Logs
         run: |
-          curl -X GET "http://localhost:9200/_cat/indices?v"
-          curl -X GET "http://localhost:9200/_search?pretty"
+          curl -X GET "https://localhost:9200/_cat/indices?v" -k
+          curl -X GET "https://localhost:9200/_search?pretty" -k
 
   review:
     runs-on: ubuntu-latest
