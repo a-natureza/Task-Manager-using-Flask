@@ -1,0 +1,175 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - master
+      - development
+  pull_request:
+    branches:
+      - master
+      - development
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Executar Bandit para análise estática de segurança
+      - name: Run Bandit for Static Analysis
+        run: |
+          pip install bandit
+          bandit -r todo_project -o bandit-report.txt
+        continue-on-error: true
+
+      # Fazer upload do relatório do Bandit
+      - name: Upload Bandit Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: bandit-report
+          path: bandit-report.txt
+
+      # Build Docker image
+      - name: Build Docker image
+        run: |
+          docker build -t task-manager-app .
+
+      # Run tests
+      - name: Run tests
+        run: |
+          docker run --rm task-manager-app pytest
+
+      # Executar OWASP Dependency-Check para verificação de dependências
+      - name: Run OWASP Dependency-Check
+        run: |
+          wget https://github.com/jeremylong/DependencyCheck/releases/download/v8.1.2/dependency-check-8.1.2-release.zip
+          unzip dependency-check-8.1.2-release.zip
+          ./dependency-check/bin/dependency-check.sh --project task-manager-app --out dependency-check-report --scan .
+
+      # Fazer upload do relatório do OWASP Dependency-Check
+      - name: Upload Dependency-Check Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: dependency-check-report
+          path: dependency-check-report
+
+      # Publish Docker image
+      - name: Publish Docker image
+        if: github.ref == 'refs/heads/master'
+        run: |
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          docker tag task-manager-app ${{ secrets.DOCKER_USERNAME }}/task-manager-app:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/task-manager-app:latest
+
+      # Configure Elastic Stack
+      - name: Set up Elastic Stack
+        run: |
+          # Baixar e instalar Elasticsearch, Logstash e Kibana
+          wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-8.10.1-linux-x86_64.tar.gz
+          wget https://artifacts.elastic.co/downloads/logstash/logstash-8.10.1-linux-x86_64.tar.gz
+          wget https://artifacts.elastic.co/downloads/kibana/kibana-8.10.1-linux-x86_64.tar.gz
+          tar -xzf elasticsearch-8.10.1-linux-x86_64.tar.gz
+          tar -xzf logstash-8.10.1-linux-x86_64.tar.gz
+          tar -xzf kibana-8.10.1-linux-x86_64.tar.gz
+
+          # Definir permissões corretas
+          chmod -R 755 elasticsearch-8.10.1/
+          
+          # Iniciar Elasticsearch no modo detached (-d)
+          nohup ./elasticsearch-8.10.1/bin/elasticsearch > elasticsearch.log 2>&1 &
+
+          # Aguardar Elasticsearch estar acessível via HTTPS
+          RETRIES=20
+          until curl -X GET "https://localhost:9200" -k > /dev/null 2>&1; do
+            echo "Aguardando Elasticsearch iniciar..."
+            RETRIES=$((RETRIES-1))
+            if [ $RETRIES -le 0 ]; then
+              echo "Elasticsearch não conseguiu iniciar a tempo."
+              cat elasticsearch.log
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "Elasticsearch está ativo e acessível via HTTPS."
+
+          # Iniciar Logstash e Kibana
+          nohup ./logstash-8.10.1/bin/logstash -f logstash.conf > logstash.log 2>&1 &
+          nohup ./kibana-8.10.1/bin/kibana > kibana.log 2>&1 &
+
+      # Check Application Logs
+      - name: Check Application Logs
+        run: |
+          curl -X GET "https://localhost:9200/_cat/indices?v" -k
+          curl -X GET "https://localhost:9200/_search?pretty" -k
+
+  review:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.9'
+
+      - name: Build Docker image for Review
+        run: |
+          docker build -t task-manager-app:review .
+
+      - name: Deploy to Review Environment
+        run: |
+          docker run -d --name task-manager-review -p 5001:5000 task-manager-app:review
+
+  deploy-stage:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.9'
+
+      - name: Build Docker image for Stage
+        run: |
+          docker build -t task-manager-app:stage .
+
+      - name: Deploy to Stage Environment
+        run: |
+          docker run -d --name task-manager-stage -p 5002:5000 task-manager-app:stage
+
+  security-testing:
+    runs-on: ubuntu-latest
+    needs: deploy-stage
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Start OWASP ZAP
+        run: |
+          docker run -d --name owasp-zap -p 8090:8090 owasp/zap2docker-stable
+
+      - name: Run Security Scan
+        run: |
+          docker exec owasp-zap zap-cli quick-scan --self-contained http://localhost:5002
+
+      - name: Stop OWASP ZAP
+        run: docker stop owasp-zap
