@@ -131,12 +131,16 @@ jobs:
       - name: Start OWASP ZAP
         run: |
           docker run -d --name owasp-zap -p 8090:8090 zaproxy/zap-stable
-          # Aguarde até que o OWASP ZAP esteja pronto
-          sleep 33  
+          # Aguarde um pouco mais para garantir que o OWASP ZAP esteja pronto
+          sleep 60
 
       - name: Verify OWASP ZAP is running
         run: |
           docker ps
+
+      - name: Check OWASP ZAP Logs
+        run: |
+          docker logs owasp-zap
 
       - name: Run Security Scan
         run: |
