@@ -90,10 +90,22 @@ jobs:
           nohup ./logstash-8.10.1/bin/logstash -f logstash.conf > logstash.log 2>&1 &
           nohup ./kibana-8.10.1/bin/kibana > kibana.log 2>&1 &
 
+          # Verificar se Elasticsearch está ativo e acessível
+          RETRIES=10
+          until curl -X GET "http://localhost:9200" > /dev/null 2>&1; do
+            echo "Aguardando Elasticsearch iniciar..."
+            RETRIES=$((RETRIES-1))
+            if [ $RETRIES -le 0 ]; then
+              echo "Elasticsearch não conseguiu iniciar a tempo."
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "Elasticsearch está ativo e acessível."
+
       # Check Application Logs
       - name: Check Application Logs
         run: |
-          # Aqui você pode usar o comando curl para acessar a API do Elasticsearch e verificar logs.
           curl -X GET "localhost:9200/_cat/indices?v"
           curl -X GET "localhost:9200/_search?pretty"
 
