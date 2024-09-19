@@ -128,3 +128,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 todo_project/todo_project/site.db
+
+.github/workflows/ci-cd.ymlelastic-stack/elasticsearch/dependency-check/data/odc.mv.db
+
+.elastic-stack/elasticsearch/dependency-check/data/odc.mv.db
