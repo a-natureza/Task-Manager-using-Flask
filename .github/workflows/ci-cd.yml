@@ -122,15 +122,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: Pull OWASP ZAP Image
+        run: docker pull zaproxy/zap-stable
+
       - name: Start OWASP ZAP
         run: |
-          docker run -d --name owasp-zap -p 8090:8090 owasp/zap2docker-stable
+          docker run -d --name owasp-zap -p 8090:8090 zaproxy/zap-stable
 
       - name: Run Security Scan
         run: |
           docker exec owasp-zap zap-cli quick-scan --self-contained http://localhost:5002
 
       - name: Stop OWASP ZAP
-        run: |
-          docker stop owasp-zap
-          docker rm owasp-zap
+        run: docker stop owasp-zap
