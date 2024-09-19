@@ -1,4 +1,4 @@
-from flask import render_template, url_for, flash, redirect, request
+from flask import render_template, url_for, flash, redirect, request, jsonify
 
 from todo_project import app, db, bcrypt
 
@@ -156,3 +156,6 @@ def change_password():
 
     return render_template('change_password.html', title='Change Password', form=form)
 
+@app.route("/health", methods=['GET'])
+def health():
+    return jsonify({"status": "healthy"}), 200
