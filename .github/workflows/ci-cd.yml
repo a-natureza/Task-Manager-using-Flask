@@ -71,8 +71,8 @@ jobs:
         if: github.ref == 'refs/heads/master'
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-          docker tag task-manager-app your-dockerhub-username/task-manager-app:latest
-          docker push your-dockerhub-username/task-manager-app:latest
+          docker tag task-manager-app ${{ secrets.DOCKER_USERNAME }}/task-manager-app:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/task-manager-app:latest
 
       # Configure Elastic Stack
       - name: Set up Elastic Stack
@@ -84,30 +84,36 @@ jobs:
           tar -xzf elasticsearch-8.10.1-linux-x86_64.tar.gz
           tar -xzf logstash-8.10.1-linux-x86_64.tar.gz
           tar -xzf kibana-8.10.1-linux-x86_64.tar.gz
-          
-          # Iniciar os serviços (como exemplo)
-          nohup ./elasticsearch-8.10.1/bin/elasticsearch > elasticsearch.log 2>&1 &
-          nohup ./logstash-8.10.1/bin/logstash -f logstash.conf > logstash.log 2>&1 &
-          nohup ./kibana-8.10.1/bin/kibana > kibana.log 2>&1 &
 
-          # Verificar se Elasticsearch está ativo e acessível
-          RETRIES=10
+          # Definir permissões corretas
+          chmod -R 755 elasticsearch-8.10.1/
+          
+          # Iniciar Elasticsearch no modo detached (-d)
+          nohup ./elasticsearch-8.10.1/bin/elasticsearch > elasticsearch.log 2>&1 &
+
+          # Aguardar Elasticsearch estar acessível
+          RETRIES=20
           until curl -X GET "http://localhost:9200" > /dev/null 2>&1; do
             echo "Aguardando Elasticsearch iniciar..."
             RETRIES=$((RETRIES-1))
             if [ $RETRIES -le 0 ]; then
               echo "Elasticsearch não conseguiu iniciar a tempo."
+              cat elasticsearch.log
               exit 1
             fi
-            sleep 5
+            sleep 10
           done
           echo "Elasticsearch está ativo e acessível."
+
+          # Iniciar Logstash e Kibana
+          nohup ./logstash-8.10.1/bin/logstash -f logstash.conf > logstash.log 2>&1 &
+          nohup ./kibana-8.10.1/bin/kibana > kibana.log 2>&1 &
 
       # Check Application Logs
       - name: Check Application Logs
         run: |
-          curl -X GET "localhost:9200/_cat/indices?v"
-          curl -X GET "localhost:9200/_search?pretty"
+          curl -X GET "http://localhost:9200/_cat/indices?v"
+          curl -X GET "http://localhost:9200/_search?pretty"
 
   review:
     runs-on: ubuntu-latest
