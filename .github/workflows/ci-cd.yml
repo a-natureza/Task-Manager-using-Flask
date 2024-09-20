@@ -125,22 +125,19 @@ jobs:
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
       - name: Pull OWASP ZAP Image
-        run: docker pull zaproxy/zap-stable
+        run: docker pull zaproxy/zap2docker-stable
 
-      - name: Start OWASP ZAP
+      - name: Start OWASP ZAP in Daemon Mode
         run: |
-          docker run -d --name owasp-zap -p 8090:8090 zaproxy/zap-stable
-          sleep 90
+          docker run -d --name owasp-zap -u zap -p 8090:8090 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8090
+          sleep 90  # Aguarda o ZAP inicializar corretamente
 
       - name: Verify OWASP ZAP is running
         run: docker ps
 
-      - name: Check OWASP ZAP Logs
-        run: docker logs owasp-zap
-
       - name: Run Security Scan
         run: |
-          docker exec owasp-zap zap-cli quick-scan --self-contained http://localhost:5002
+          docker exec owasp-zap zap-cli quick-scan --self-contained --start-options '-config api.addrs.addr.name=localhost' http://localhost:5002
 
       - name: Stop OWASP ZAP
         run: docker stop owasp-zap
