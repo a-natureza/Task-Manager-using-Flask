@@ -129,11 +129,14 @@ jobs:
 
       - name: Start OWASP ZAP in Daemon Mode
         run: |
-          docker run -d --name owasp-zap -u zap -p 8090:8090 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8090
-          sleep 90  # Aguarda o ZAP inicializar corretamente
+          docker run -d --name owasp-zap -u zap -p 8090:8090 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8090 -config api.addrs.addr.regex=.*
 
-      - name: Verify OWASP ZAP is running
-        run: docker ps
+      - name: Wait for OWASP ZAP to start
+        run: |
+          until $(curl --output /dev/null --silent --head --fail http://localhost:8090); do
+              printf '.'
+              sleep 5
+          done
 
       - name: Run Security Scan
         run: |
