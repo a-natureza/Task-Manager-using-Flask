@@ -27,45 +27,38 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Executar Bandit para análise estática de segurança
       - name: Run Bandit for Static Analysis
         run: |
           pip install bandit
           bandit -r todo_project -o bandit-report.txt
         continue-on-error: true
 
-      # Fazer upload do relatório do Bandit
       - name: Upload Bandit Report
         uses: actions/upload-artifact@v3
         with:
           name: bandit-report
           path: bandit-report.txt
 
-      # Build Docker image
       - name: Build Docker image
         run: |
           docker build -t task-manager-app .
 
-      # Run tests
       - name: Run tests
         run: |
           docker run --rm task-manager-app pytest
 
-      # Executar OWASP Dependency-Check para verificação de dependências
       - name: Run OWASP Dependency-Check
         run: |
           wget https://github.com/jeremylong/DependencyCheck/releases/download/v8.1.2/dependency-check-8.1.2-release.zip
           unzip dependency-check-8.1.2-release.zip
           ./dependency-check/bin/dependency-check.sh --project task-manager-app --out dependency-check-report --scan .
 
-      # Fazer upload do relatório do OWASP Dependency-Check
       - name: Upload Dependency-Check Report
         uses: actions/upload-artifact@v3
         with:
           name: dependency-check-report
           path: dependency-check-report
 
-      # Publish Docker image
       - name: Publish Docker image
         if: github.ref == 'refs/heads/master'
         run: |
@@ -129,13 +122,18 @@ jobs:
 
       - name: Start OWASP ZAP in Daemon Mode
         run: |
-          docker run -d --name owasp-zap -u zap -p 8090:8090 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8090 -config api.addrs.addr.regex=.* -config api.key=rh71lkbhv1u0lvlku054j149s0
+          docker run -d --name owasp-zap -u zap -p 8090:8090 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8090 -config api.addrs.addr.regex=.*
 
       - name: Wait for OWASP ZAP to start
         run: |
-          until $(curl --output /dev/null --silent --head --fail http://localhost:8090); do
-              printf '.'
-              sleep 5
+          echo "Waiting for OWASP ZAP to start..."
+          for i in {1..12}; do
+            if curl --output /dev/null --silent --head --fail http://localhost:8090; then
+              echo "OWASP ZAP is running."
+              break
+            fi
+            echo "Still waiting for OWASP ZAP..."
+            sleep 5
           done
 
       - name: Run Security Scan
@@ -143,4 +141,4 @@ jobs:
           docker exec owasp-zap zap-cli quick-scan --self-contained --start-options '-config api.key=rh71lkbhv1u0lvlku054j149s0' http://localhost:5002
 
       - name: Stop OWASP ZAP
-        run: docker stop owasp-zap
+        run: docker stop owasp-zap && docker rm owasp-zap
