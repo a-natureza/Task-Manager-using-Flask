@@ -122,7 +122,7 @@ jobs:
 
       - name: Start OWASP ZAP in Daemon Mode
         run: |
-          docker run -d --name owasp-zap -u root -p 8090:8090 \
+          docker run -d --name owasp-zap -p 8090:8090 \
             zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8090 \
             -config api.addrs.addr.regex=.* \
             -config api.key=rh71lkbhv1u0lvlku054j149s0
@@ -130,16 +130,17 @@ jobs:
       - name: Wait for OWASP ZAP to start
         run: |
           echo "Waiting for OWASP ZAP to start..."
-          for i in {1..60}; do  # Aumentado de 30 para 60
+          for i in {1..60}; do  # Aumentar de 30 para 60 tentativas
             if curl --output /dev/null --silent --head --fail http://localhost:8090; then
               echo "OWASP ZAP is running."
               break
             fi
             echo "Still waiting for OWASP ZAP..."
-            sleep 10  # 10 segundos de intervalo
+            sleep 10
           done
           if ! curl --output /dev/null --silent --head --fail http://localhost:8090; then
             echo "OWASP ZAP failed to start within the timeout period."
+            docker logs owasp-zap  # Verificar logs se falhar
             exit 1
           fi
 
