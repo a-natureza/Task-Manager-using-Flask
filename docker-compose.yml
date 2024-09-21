@@ -16,9 +16,37 @@ services:
       FLASK_APP: todo_project/run.py
       FLASK_ENV: development
     command: python todo_project/run.py
+    networks:
+      - my_network
 
   owasp-zap:
     image: owasp/zap2docker-stable
     ports:
       - "8091:8090"
     command: zap.sh -daemon -port 8090
+    networks:
+      - my_network
+
+  elasticsearch:
+    image: elasticsearch:7.10.0
+    networks:
+      - my_network
+    environment:
+      - discovery.type=single-node
+
+  logstash:
+    image: logstash:7.10.0
+    networks:
+      - my_network
+    volumes:
+      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+
+  kibana:
+    image: kibana:7.10.0
+    ports:
+      - "5601:5601"
+    networks:
+      - my_network
+
+networks:
+  my_network:
