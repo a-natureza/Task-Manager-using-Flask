@@ -129,7 +129,7 @@ jobs:
 
       - name: Start OWASP ZAP in Daemon Mode
         run: |
-          docker run -d --name owasp-zap -u zap -p 8090:8090 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8090 -config api.addrs.addr.regex=.*
+          docker run -d --name owasp-zap -u zap -p 8090:8090 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8090 -config api.addrs.addr.regex=.* -config api.key=rh71lkbhv1u0lvlku054j149s0
 
       - name: Wait for OWASP ZAP to start
         run: |
@@ -140,7 +140,7 @@ jobs:
 
       - name: Run Security Scan
         run: |
-          docker exec owasp-zap zap-cli quick-scan --self-contained --start-options '-config api.addrs.addr.name=localhost' http://localhost:5002
+          docker exec owasp-zap zap-cli quick-scan --self-contained --start-options '-config api.key=rh71lkbhv1u0lvlku054j149s0' http://localhost:5002
 
       - name: Stop OWASP ZAP
         run: docker stop owasp-zap
