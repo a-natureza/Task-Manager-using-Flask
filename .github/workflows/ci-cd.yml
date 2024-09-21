@@ -138,7 +138,7 @@ jobs:
 
       - name: Run Security Scan
         run: |
-          docker exec owasp-zap zap-cli quick-scan --self-contained --start-options '-config api.key=rh71lkbhv1u0lvlku054j149s0' http://localhost:5002
+          docker exec -t owasp-zap zap.sh -cmd -quickscan -url http://localhost:5002 -apikey rh71lkbhv1u0lvlku054j149s0
 
       - name: Stop OWASP ZAP
         run: docker stop owasp-zap && docker rm owasp-zap
