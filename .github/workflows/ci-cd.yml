@@ -127,6 +127,10 @@ jobs:
             -config api.addrs.addr.regex=.* \
             -config api.key=rh71lkbhv1u0lvlku054j149s0
 
+      - name: Print OWASP ZAP logs
+        run: docker logs owasp-zap || echo "Não foi possível obter logs do OWASP ZAP."
+          
+
       - name: Wait for OWASP ZAP to start
         run: |
           echo "Waiting for OWASP ZAP to start..."
@@ -136,7 +140,7 @@ jobs:
               break
             fi
             echo "Still waiting for OWASP ZAP..."
-            sleep 10  # Ajustar o tempo de espera
+            sleep 10
           done
           if ! curl --output /dev/null --silent --head --fail http://localhost:8090; then
             echo "OWASP ZAP failed to start within the timeout period."
