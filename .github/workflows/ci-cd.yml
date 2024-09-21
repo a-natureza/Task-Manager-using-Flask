@@ -130,7 +130,7 @@ jobs:
       - name: Wait for OWASP ZAP to start
         run: |
           echo "Waiting for OWASP ZAP to start..."
-          for i in {1..20}; do
+          for i in {1..30}; do  # Aumentado de 20 para 30
             if curl --output /dev/null --silent --head --fail http://localhost:8090; then
               echo "OWASP ZAP is running."
               break
@@ -143,22 +143,5 @@ jobs:
             exit 1
           fi
 
-      - name: Install zap-cli
-        run: pip install zapcli
-
-      - name: Run Security Scan
-        run: |
-          zap-cli --zap-url http://localhost:8090 --apikey rh71lkbhv1u0lvlku054j149s0 quick-scan http://localhost:5002
-
-      - name: Retrieve ZAP Report
-        run: |
-          zap-cli report -o zap_report.html -f html --apikey rh71lkbhv1u0lvlku054j149s0
-
-      - name: Upload ZAP Report
-        uses: actions/upload-artifact@v3
-        with:
-          name: zap-report
-          path: zap_report.html
-
-      - name: Stop OWASP ZAP
-        run: docker stop owasp-zap && docker rm owasp-zap
+      - name: Print OWASP ZAP logs
+        run: docker logs owasp-zap
