@@ -27,3 +27,5 @@ ENV FLASK_APP=/app/todo_project/run.py
 
 # Comando para executar a aplicação
 CMD ["python", "todo_project/run.py"]
+
+ENV JAVA_OPTS="-Xmx1024m"
