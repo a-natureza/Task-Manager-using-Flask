@@ -156,17 +156,17 @@ jobs:
 
       - name: Run Security Scan
         run: |
-          zap-cli --zap-url http://localhost:8090 --apikey rh71lkbhv1u0lvlku054j149s0 quick-scan http://localhost:5002
-
+          zap-cli --zap-url http://localhost:8090 --apikey ${{ secrets.ZAP_API_KEY }} quick-scan http://localhost:5002
+  
       - name: Retrieve ZAP Report
         run: |
-          zap-cli report -o zap_report.html -f html --apikey rh71lkbhv1u0lvlku054j149s0
-
+          zap-cli report -o zap_report.html -f html --apikey ${{ secrets.ZAP_API_KEY }}
+  
       - name: Upload ZAP Report
         uses: actions/upload-artifact@v3
         with:
           name: zap-report
           path: zap_report.html
-
+  
       - name: Stop OWASP ZAP
         run: docker stop owasp-zap && docker rm owasp-zap
