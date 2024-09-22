@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   app:
     build: .
@@ -20,29 +18,34 @@ services:
       - my_network
 
   owasp-zap:
-    image: owasp-zap/zap-stable
+    image: zaproxy/zap-stable
     ports:
       - "8091:8090"
-    command: zap.sh -daemon -port 8090
+    command: zap.sh -daemon -host 0.0.0.0 -port 8090
     networks:
       - my_network
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "http://owasp-zap:8090" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   elasticsearch:
-    image: elasticsearch:7.10.0
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.10.0
     networks:
       - my_network
     environment:
       - discovery.type=single-node
 
   logstash:
-    image: logstash:7.10.0
+    image: docker.elastic.co/logstash/logstash:7.10.0
     networks:
       - my_network
     volumes:
       - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
 
   kibana:
-    image: kibana:7.10.0
+    image: docker.elastic.co/kibana/kibana:7.10.0
     ports:
       - "5601:5601"
     networks:

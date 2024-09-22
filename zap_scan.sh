@@ -6,8 +6,9 @@ API_KEY="9ctslp8in9e6a9aq17dssmpbio"
 
 # Iniciar o spidering para o alvo
 response=$(curl -s "$API_URL/JSON/spider/action/scan/?url=http://localhost:5000&maxChildren=10&apikey=$API_KEY")
+scanId=$(echo $response | jq -r '.scan')
 if [[ "$response" == *'"result":"OK"'* ]]; then
-    echo "Spidering iniciado com sucesso."
+    echo "Spidering iniciado com sucesso. Scan ID: $scanId"
 else
     echo "Falha ao iniciar o spidering."
     echo "Resposta: $response"
@@ -17,7 +18,7 @@ fi
 # Esperar o spidering terminar
 echo "Esperando o spidering terminar..."
 for i in {1..60}; do
-    status=$(curl -s "$API_URL/JSON/spider/view/status/?apikey=$API_KEY")
+    status=$(curl -s "$API_URL/JSON/spider/view/status/?scanId=$scanId&apikey=$API_KEY")
     if [[ "$status" == *'"status":"0"'* ]]; then
         echo "Spidering concluído."
         break
@@ -33,8 +34,9 @@ fi
 
 # Iniciar o scan ativo
 response=$(curl -s "$API_URL/JSON/ascan/action/scan/?url=http://localhost:5000&apikey=$API_KEY")
+activeScanId=$(echo $response | jq -r '.scan')
 if [[ "$response" == *'"result":"OK"'* ]]; then
-    echo "Scan ativo iniciado com sucesso."
+    echo "Scan ativo iniciado com sucesso. Active Scan ID: $activeScanId"
 else
     echo "Falha ao iniciar o scan ativo."
     echo "Resposta: $response"
@@ -44,7 +46,7 @@ fi
 # Esperar o scan ativo terminar
 echo "Esperando o scan ativo terminar..."
 for i in {1..60}; do
-    progress=$(curl -s "$API_URL/JSON/ascan/view/status/?apikey=$API_KEY")
+    progress=$(curl -s "$API_URL/JSON/ascan/view/status/?scanId=$activeScanId&apikey=$API_KEY")
     if [[ "$progress" == *'"status":"0"'* ]]; then
         echo "Scan ativo concluído."
         break

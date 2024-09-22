@@ -168,7 +168,7 @@ jobs:
       - name: Run Security Scan with OWASP ZAP API
         run: |
           # Iniciar o spidering para o alvo
-          response=$(curl -s "http://localhost:8090/JSON/spider/action/scan/?url=http://http://127.0.0.1:5000&maxChildren=10")
+          response=$(curl -s "http://localhost:8090/JSON/spider/action/scan/?url=http://127.0.0.1:5000&maxChildren=10")
           if [[ "$response" == *'"result":"OK"'* ]]; then
             echo "Spidering iniciado com sucesso."
           else
