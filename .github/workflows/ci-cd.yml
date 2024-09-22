@@ -144,71 +144,50 @@ jobs:
             exit 1
           fi
 
-          - name: Check OWASP ZAP Logs
-          run: docker logs owasp-zap
-        
-      - name: Wait for OWASP ZAP to be Ready
-        run: |
-            echo "Esperando o OWASP ZAP estar pronto..."
-            for i in {1..60}; do
-              if curl --output /dev/null --silent --head --fail http://localhost:8090; then
-                echo "OWASP ZAP está pronto."
-                break
-              fi
-              echo "Aguardando OWASP ZAP iniciar..."
-              sleep 10
-            done
-            if ! curl --output /dev/null --silent --head --fail http://localhost:8090; then
-              echo "OWASP ZAP falhou ao iniciar no período de timeout."
-              docker logs owasp-zap
-              exit 1
-            fi
-        
+      - name: Check OWASP ZAP Logs
+        run: docker logs owasp-zap
+
       - name: Run Security Scan with OWASP ZAP API
         run: |
           # Iniciar o spidering para o alvo
-          echo "Iniciando spidering para http://localhost:5002..."
-          curl "http://localhost:8090/JSON/spider/action/scan/?url=http://localhost:5002&maxChildren=10"
+          spider_id=$(curl -s "http://localhost:8090/JSON/spider/action/scan/?url=http://localhost:5002&maxChildren=10" | jq -r '.scan')
           
           # Esperar o spidering terminar
           echo "Esperando o spidering terminar..."
           for i in {1..60}; do
-            status=$(curl -s "http://localhost:8090/JSON/spider/view/status/")
-            if [[ "$status" == *'"status":"0"'* ]]; then
+            status=$(curl -s "http://localhost:8090/JSON/spider/view/status/?scanId=$spider_id" | jq -r '.status')
+            if [ "$status" == "0" ]; then
               echo "Spidering concluído."
               break
             fi
             echo "Spidering em andamento..."
             sleep 10
           done
-      
+
           # Iniciar o scan ativo
-          echo "Iniciando scan ativo..."
-          curl "http://localhost:8090/JSON/ascan/action/scan/?url=http://localhost:5002"
-          
+          scan_id=$(curl -s "http://localhost:8090/JSON/ascan/action/scan/?url=http://localhost:5002" | jq -r '.scan')
+
           # Esperar o scan ativo terminar
           echo "Esperando o scan ativo terminar..."
           for i in {1..60}; do
-            progress=$(curl -s "http://localhost:8090/JSON/ascan/view/status/")
-            if [[ "$progress" == *'"status":"0"'* ]]; then
+            progress=$(curl -s "http://localhost:8090/JSON/ascan/view/status/?scanId=$scan_id" | jq -r '.status')
+            if [ "$progress" == "0" ]; then
               echo "Scan ativo concluído."
               break
             fi
             echo "Scan ativo em andamento..."
             sleep 10
           done
-      
+
       - name: Retrieve ZAP Report
         run: |
-          echo "Baixando o relatório ZAP..."
           curl "http://localhost:8090/OTHER/core/other/htmlreport/" -o zap_report.html
-      
+
       - name: Upload ZAP Report
         uses: actions/upload-artifact@v3
         with:
           name: zap-report
           path: zap_report.html
-      
+
       - name: Stop OWASP ZAP
         run: docker stop owasp-zap && docker rm owasp-zap
-      
