@@ -20,7 +20,7 @@ services:
       - my_network
 
   owasp-zap:
-    image: owasp/zap2docker-stable
+    image: owasp-zap/zap-stable
     ports:
       - "8091:8090"
     command: zap.sh -daemon -port 8090
