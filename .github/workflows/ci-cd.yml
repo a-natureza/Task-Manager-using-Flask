@@ -144,6 +144,24 @@ jobs:
             exit 1
           fi
 
+      - name: Verify OWASP ZAP API is reachable
+        run: |
+          echo "Verificando se a API do OWASP ZAP está acessível..."
+          for i in {1..10}; do
+            if curl --output /dev/null --silent --head --fail http://localhost:8090; then
+              echo "API do OWASP ZAP está acessível."
+              break
+            else
+              echo "API do OWASP ZAP ainda não está acessível. Aguardando..."
+              sleep 10
+            fi
+          done
+      
+          if ! curl --output /dev/null --silent --head --fail http://localhost:8090; then
+            echo "API do OWASP ZAP não está acessível após várias tentativas."
+            exit 1
+          fi
+
       - name: Check OWASP ZAP Logs
         run: docker logs owasp-zap
 
