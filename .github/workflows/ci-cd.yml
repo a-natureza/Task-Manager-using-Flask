@@ -136,7 +136,7 @@ jobs:
               break
             fi
             echo "Still waiting for OWASP ZAP..."
-            sleep 10
+            sleep 15
           done
           if ! curl --output /dev/null --silent --head --fail http://localhost:8090; then
             echo "OWASP ZAP failed to start within the timeout period."
@@ -144,9 +144,30 @@ jobs:
             exit 1
           fi
 
+          - name: Check OWASP ZAP Logs
+          run: docker logs owasp-zap
+        
+      - name: Wait for OWASP ZAP to be Ready
+        run: |
+            echo "Esperando o OWASP ZAP estar pronto..."
+            for i in {1..60}; do
+              if curl --output /dev/null --silent --head --fail http://localhost:8090; then
+                echo "OWASP ZAP está pronto."
+                break
+              fi
+              echo "Aguardando OWASP ZAP iniciar..."
+              sleep 10
+            done
+            if ! curl --output /dev/null --silent --head --fail http://localhost:8090; then
+              echo "OWASP ZAP falhou ao iniciar no período de timeout."
+              docker logs owasp-zap
+              exit 1
+            fi
+        
       - name: Run Security Scan with OWASP ZAP API
         run: |
           # Iniciar o spidering para o alvo
+          echo "Iniciando spidering para http://localhost:5002..."
           curl "http://localhost:8090/JSON/spider/action/scan/?url=http://localhost:5002&maxChildren=10"
           
           # Esperar o spidering terminar
@@ -160,8 +181,9 @@ jobs:
             echo "Spidering em andamento..."
             sleep 10
           done
-
+      
           # Iniciar o scan ativo
+          echo "Iniciando scan ativo..."
           curl "http://localhost:8090/JSON/ascan/action/scan/?url=http://localhost:5002"
           
           # Esperar o scan ativo terminar
@@ -175,16 +197,18 @@ jobs:
             echo "Scan ativo em andamento..."
             sleep 10
           done
-
+      
       - name: Retrieve ZAP Report
         run: |
+          echo "Baixando o relatório ZAP..."
           curl "http://localhost:8090/OTHER/core/other/htmlreport/" -o zap_report.html
-
+      
       - name: Upload ZAP Report
         uses: actions/upload-artifact@v3
         with:
           name: zap-report
           path: zap_report.html
-
+      
       - name: Stop OWASP ZAP
         run: docker stop owasp-zap && docker rm owasp-zap
+      
