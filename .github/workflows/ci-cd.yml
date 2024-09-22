@@ -122,17 +122,12 @@ jobs:
 
       - name: Start OWASP ZAP in Daemon Mode
         run: |
-          docker run -d --name owasp-zap -p 8090:8090 \
+          docker run -d --name owasp-zap --network="host" \
             zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8090 \
             -config api.addrs.addr.regex=.* \
             -config api.key=${{ secrets.ZAP_API_KEY }} \
             -config api.addrs.allow=0.0.0.0/0
-      
-
-      - name: Print OWASP ZAP logs
-        run: docker logs owasp-zap || echo "Não foi possível obter logs do OWASP ZAP."
           
-
       - name: Wait for OWASP ZAP to start
         run: |
           echo "Waiting for OWASP ZAP to start..."
@@ -146,12 +141,9 @@ jobs:
           done
           if ! curl --output /dev/null --silent --head --fail http://localhost:8090; then
             echo "OWASP ZAP failed to start within the timeout period."
-            docker logs owasp-zap  # Verificar logs se falhar
+            docker logs owasp-zap
             exit 1
           fi
-
-      - name: Print OWASP ZAP logs
-        run: docker logs owasp-zap
 
       - name: Install zap-cli
         run: pip install zapcli
@@ -159,16 +151,16 @@ jobs:
       - name: Run Security Scan
         run: |
           zap-cli --zap-url http://localhost:8090 --apikey ${{ secrets.ZAP_API_KEY }} quick-scan http://localhost:5002
-  
+
       - name: Retrieve ZAP Report
         run: |
           zap-cli report -o zap_report.html -f html --apikey ${{ secrets.ZAP_API_KEY }}
-  
+
       - name: Upload ZAP Report
         uses: actions/upload-artifact@v3
         with:
           name: zap-report
           path: zap_report.html
-  
+
       - name: Stop OWASP ZAP
         run: docker stop owasp-zap && docker rm owasp-zap
