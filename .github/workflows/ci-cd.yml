@@ -125,7 +125,6 @@ jobs:
           docker run -d --name owasp-zap --network="host" \
             zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8090 \
             -config api.addrs.addr.regex=.* \
-            -config api.key=${{ secrets.ZAP_API_KEY }} \
             -config api.addrs.allow=0.0.0.0/0
           
       - name: Wait for OWASP ZAP to start
@@ -150,11 +149,11 @@ jobs:
 
       - name: Run Security Scan
         run: |
-          zap-cli --zap-url http://localhost:8090 --apikey ${{ secrets.ZAP_API_KEY }} quick-scan http://localhost:5002
+          zap-cli --zap-url http://localhost:8090 quick-scan http://localhost:5002
 
       - name: Retrieve ZAP Report
         run: |
-          zap-cli report -o zap_report.html -f html --apikey ${{ secrets.ZAP_API_KEY }}
+          zap-cli report -o zap_report.html -f html
 
       - name: Upload ZAP Report
         uses: actions/upload-artifact@v3
