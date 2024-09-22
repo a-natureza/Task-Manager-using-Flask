@@ -118,7 +118,7 @@ jobs:
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
       - name: Pull OWASP ZAP Image
-        run: docker pull zaproxy/zap2docker-stable
+        run: docker pull zaproxy/zap-stable
 
       - name: Start OWASP ZAP in Daemon Mode
         run: |
@@ -127,13 +127,109 @@ jobs:
             zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8090 \
             -config api.addrs.addr.regex=.* \
             -config api.addrs.allow=0.0.0.0/0
-        
-      - name: Verify OWASP ZAP is running
-        run: docker ps
 
-      - name: Run Security Scan
+      - name: Wait for OWASP ZAP to start
         run: |
-          docker exec owasp-zap zap-cli quick-scan --self-contained --start-options '-config api.addrs.addr.name=localhost' http://localhost:5002
+          echo "Waiting for OWASP ZAP to start..."
+          for i in {1..60}; do
+            if curl --output /dev/null --silent --head --fail http://localhost:8090; then
+              echo "OWASP ZAP is running."
+              break
+            fi
+            echo "Still waiting for OWASP ZAP..."
+            sleep 15
+          done
+          if ! curl --output /dev/null --silent --head --fail http://localhost:8090; then
+            echo "OWASP ZAP failed to start within the timeout period."
+            docker logs owasp-zap
+            exit 1
+          fi
+
+      - name: Verify OWASP ZAP API is reachable
+        run: |
+          echo "Verificando se a API do OWASP ZAP está acessível..."
+          for i in {1..10}; do
+            if curl --output /dev/null --silent --head --fail "http://localhost:8090/JSON/version/?apikey=${{ secrets.ZAP_API_KEY }}"; then
+              echo "API do OWASP ZAP está acessível."
+              break
+            else
+              echo "API do OWASP ZAP ainda não está acessível. Aguardando..."
+              sleep 10
+            fi
+          done
+
+          if ! curl --output /dev/null --silent --head --fail "http://localhost:8090/JSON/version/?apikey=${{ secrets.ZAP_API_KEY }}"; then
+            echo "API do OWASP ZAP não está acessível após várias tentativas."
+            exit 1
+          fi
+
+      - name: Check OWASP ZAP Logs
+        run: docker logs owasp-zap
+
+      - name: Run Security Scan with OWASP ZAP API
+        run: |
+          # Iniciar o spidering para o alvo
+          response=$(curl -s "http://localhost:8090/JSON/spider/action/scan/?url=http://127.0.0.1:5000&apikey=${{ secrets.ZAP_API_KEY }}")
+          if [[ "$response" == *'"result":"OK"'* ]]; then
+            echo "Spidering iniciado com sucesso."
+          else
+            echo "Falha ao iniciar o spidering."
+            exit 1
+          fi
+
+          # Esperar o spidering terminar
+          echo "Esperando o spidering terminar..."
+          for i in {1..60}; do
+            status=$(curl -s "http://localhost:8090/JSON/spider/view/status/?apikey=${{ secrets.ZAP_API_KEY }}")
+            if [[ "$status" == *'"status":"0"'* ]]; then
+              echo "Spidering concluído."
+              break
+            fi
+            echo "Spidering em andamento..."
+            sleep 10
+          done
+
+          if [[ "$status" != *'"status":"0"'* ]]; then
+            echo "Spidering não completou dentro do tempo limite."
+            exit 1
+          fi
+
+          # Iniciar o scan ativo
+          response=$(curl -s "http://localhost:8090/JSON/ascan/action/scan/?url=http://127.0.0.1:5000&apikey=${{ secrets.ZAP_API_KEY }}")
+          if [[ "$response" == *'"result":"OK"'* ]]; then
+            echo "Scan ativo iniciado com sucesso."
+          else
+            echo "Falha ao iniciar o scan ativo."
+            exit 1
+          fi
+
+          # Esperar o scan ativo terminar
+          echo "Esperando o scan ativo terminar..."
+          for i in {1..60}; do
+            progress=$(curl -s "http://localhost:8090/JSON/ascan/view/status/?apikey=${{ secrets.ZAP_API_KEY }}")
+            if [[ "$progress" == *'"status":"0"'* ]]; then
+              echo "Scan ativo concluído."
+              break
+            fi
+            echo "Scan ativo em andamento..."
+            sleep 10
+          done
+
+          if [[ "$progress" != *'"status":"0"'* ]]; then
+            echo "Scan ativo não completou dentro do tempo limite."
+            exit 1
+          fi
+
+      - name: Retrieve ZAP Report
+        run: |
+          sleep 60  # Aguardar tempo extra para garantir que o relatório esteja pronto
+          curl "http://localhost:8090/OTHER/core/other/htmlreport/?apikey=${{ secrets.ZAP_API_KEY }}" -o zap_report.html
+
+      - name: Upload ZAP Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: zap-report
+          path: zap_report.html
 
       - name: Stop OWASP ZAP
-        run: docker stop owasp-zap
+        run: docker stop owasp-zap && docker rm owasp-zap
